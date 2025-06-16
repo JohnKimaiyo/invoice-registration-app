@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Invoice Registry App (with Edit & Search)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background-color: #f4f4f4;
+    }
+    h2 {
+      text-align: center;
+    }
+    form, .search-box {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 600px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 4px;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px;
+      width: 100%;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    table {
+      margin-top: 40px;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #aaa;
+      padding: 8px;
+      text-align: left;
+    }
+    .export, .edit-btn {
+      background-color: #28a745;
+      margin: 20px auto;
+      display: block;
+      padding: 10px 20px;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .edit-btn {
+      background-color: #ffc107;
+    }
+    .search-box {
+      margin-top: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Invoice Registry</h2>
+
+<div class="search-box">
+  <label>Search Invoices:
+    <input type="text" id="searchInput" placeholder="Search by Supplier Name, Invoice No, LPO No">
+  </label>
+</div>
+
+<form id="invoiceForm">
+  <label>Supplier Name:<input type="text" id="supplierName"></label>
+  <label>Invoice Number*:<input type="text" id="invoiceNumber" required></label>
+  <label>L.P.O Number*:<input type="text" id="lpoNumber" required></label>
+  <label>Invoice Date:<input type="date" id="invoiceDate"></label>
+  <label>Amount:<input type="number" id="amount" step="0.01"></label>
+  <label>Currency:<input type="text" id="currency"></label>
+  <label>Supplier Statement Available:
+    <select id="statementAvailable">
+      <option value="Yes">Yes</option>
+      <option value="No">No</option>
+    </select>
+  </label>
+  <label>Supplier Email Address:<input type="email" id="email"></label>
+  <label>Supplier Phone Number:<input type="text" id="phone"></label>
+  <button type="submit">Save Invoice</button>
+</form>
+
+<button class="export" onclick="downloadCSV()">Export to CSV</button>
+
+<table id="invoiceTable">
+  <thead>
+    <tr>
+      <th>Supplier Name</th>
+      <th>Invoice Number</th>
+      <th>LPO Number</th>
+      <th>Invoice Date</th>
+      <th>Amount</th>
+      <th>Currency</th>
+      <th>Statement Available</th>
+      <th>Email</th>
+      <th>Phone</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+  const form = document.getElementById('invoiceForm');
+  const tableBody = document.querySelector('#invoiceTable tbody');
+  const searchInput = document.getElementById('searchInput');
+
+  let invoiceData = [];
+  let editIndex = null;
+
+  // Load data from localStorage on page load
+  window.onload = () => {
+    const saved = localStorage.getItem('invoices');
+    if (saved) {
+      invoiceData = JSON.parse(saved);
+      renderTable(invoiceData);
+    }
+  };
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const invoiceNumber = document.getElementById('invoiceNumber').value.trim();
+    const lpoNumber = document.getElementById('lpoNumber').value.trim();
+
+    if (!invoiceNumber || !lpoNumber) {
+      alert("Invoice Number and LPO Number are required.");
+      return;
+    }
+
+    const formData = {
+      supplierName: document.getElementById('supplierName').value.trim(),
+      invoiceNumber,
+      lpoNumber,
+      invoiceDate: document.getElementById('invoiceDate').value,
+      amount: document.getElementById('amount').value,
+      currency: document.getElementById('currency').value.trim(),
+      statementAvailable: document.getElementById('statementAvailable').value,
+      email: document.getElementById('email').value.trim(),
+      phone: document.getElementById('phone').value.trim()
+    };
+
+    if (editIndex === null) {
+      // Adding new
+      if (invoiceData.some(inv => inv.invoiceNumber === invoiceNumber)) {
+        alert("Invoice Number must be unique.");
+        return;
+      }
+      invoiceData.push(formData);
+    } else {
+      // Editing existing
+      invoiceData[editIndex] = formData;
+      editIndex = null;
+    }
+
+    localStorage.setItem('invoices', JSON.stringify(invoiceData));
+    form.reset();
+    renderTable(invoiceData);
+  });
+
+  function renderTable(data) {
+    tableBody.innerHTML = '';
+    data.forEach((invoice, index) => {
+      const row = document.createElement('tr');
+      for (let key in invoice) {
+        const cell = document.createElement('td');
+        cell.textContent = invoice[key];
+        row.appendChild(cell);
+      }
+      const actionCell = document.createElement('td');
+      const editBtn = document.createElement('button');
+      editBtn.textContent = 'Edit';
+      editBtn.className = 'edit-btn';
+      editBtn.onclick = () => loadFormForEdit(index);
+      actionCell.appendChild(editBtn);
+      row.appendChild(actionCell);
+      tableBody.appendChild(row);
+    });
+  }
+
+  function loadFormForEdit(index) {
+    const inv = invoiceData[index];
+    document.getElementById('supplierName').value = inv.supplierName;
+    document.getElementById('invoiceNumber').value = inv.invoiceNumber;
+    document.getElementById('lpoNumber').value = inv.lpoNumber;
+    document.getElementById('invoiceDate').value = inv.invoiceDate;
+    document.getElementById('amount').value = inv.amount;
+    document.getElementById('currency').value = inv.currency;
+    document.getElementById('statementAvailable').value = inv.statementAvailable;
+    document.getElementById('email').value = inv.email;
+    document.getElementById('phone').value = inv.phone;
+    editIndex = index;
+  }
+
+  searchInput.addEventListener('input', function() {
+    const query = this.value.toLowerCase();
+    const filtered = invoiceData.filter(inv =>
+      inv.supplierName.toLowerCase().includes(query) ||
+      inv.invoiceNumber.toLowerCase().includes(query) ||
+      inv.lpoNumber.toLowerCase().includes(query)
+    );
+    renderTable(filtered);
+  });
+
+  function downloadCSV() {
+    if (invoiceData.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+
+    const headers = Object.keys(invoiceData[0]);
+    const csvRows = [
+      headers.join(','),
+      ...invoiceData.map(row => headers.map(header => `"${(row[header] || "").replace(/"/g, '""')}"`).join(','))
+    ];
+    const csvContent = csvRows.join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'invoice_registry.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+</script>
+
+</body>
+</html>
